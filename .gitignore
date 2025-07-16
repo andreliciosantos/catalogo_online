@@ -1,0 +1,33 @@
+# compiled output
+/backend/dist
+/backend/node_modules
+/backend/build
+
+# Logs
+/backend/logs
+/backend/*.log
+/backend/npm-debug.log*
+/backend/pnpm-debug.log*
+/backend/yarn-debug.log*
+/backend/yarn-error.log*
+/backend/lerna-debug.log*
+
+# OS
+/backend/.DS_Store
+
+# Tests
+/backend/coverage
+/backend/.nyc_output
+
+# dotenv environment variable files
+/backend/.env
+/backend/.env.development.local
+/backend/.env.test.local
+/backend/.env.production.local
+/backend/.env.local
+
+# temp directory
+/backend/.temp
+/backend/.tmp
+
+/backend/generated/prisma
