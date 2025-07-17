@@ -1,32 +1,33 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Produto } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 @Injectable()
 export class ProdutosService {
   async criarProduto(data: {
-    nome: string;
+    ean: string;
+    codigo: string;
     descricao: string;
     preco: number;
-    imagemUrl: string;
-  }) {
+    imagens: string[];
+  }): Promise<Produto> {
     return await prisma.produto.create({ data });
   }
 
-  async listarTodos() {
+  async listarTodos(): Promise<Produto[]> {
     return await prisma.produto.findMany();
   }
 
-  async buscarPorId(id: number) {
+  async buscarPorId(id: number): Promise<Produto | null> {
     return await prisma.produto.findUnique({ where: { id } });
   }
 
-  async atualizar(id: number, data: any) {
+  async atualizar(id: number, data: Partial<Produto>): Promise<Produto> {
     return await prisma.produto.update({ where: { id }, data });
   }
 
-  async deletar(id: number) {
+  async deletar(id: number): Promise<Produto> {
     return await prisma.produto.delete({ where: { id } });
   }
 }

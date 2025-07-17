@@ -6,7 +6,8 @@ import {
   Put,
   Delete,
   Body,
-  UploadedFile,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ProdutosService } from './produtos.service';
 import {
@@ -14,7 +15,7 @@ import {
   ApiBody,
   ApiTags,
 } from '@nestjs/swagger';
-import { FastifyRequest } from 'fastify';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { join } from 'path';
 import * as fs from 'fs';
 
@@ -24,35 +25,44 @@ export class ProdutosController {
   constructor(private readonly service: ProdutosService) {}
 
   @Post()
+  @UseInterceptors(FilesInterceptor('imagens'))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        nome: { type: 'string' },
+        ean: { type: 'string' },
+        codigo: { type: 'string' },
         descricao: { type: 'string' },
         preco: { type: 'number' },
-        imagem: {
-          type: 'string',
-          format: 'binary',
+        imagens: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary',
+          },
         },
       },
     },
   })
-  async criar(@UploadedFile() file: any, @Body() body: any, req: FastifyRequest) {
-    const { nome, descricao, preco } = body;
-    const fileBuffer = await file.toBuffer();
+  async criar(@UploadedFiles() files: Express.Multer.File[], @Body() body: any) {
+    const { ean, codigo, descricao, preco } = body;
 
-    const filename = `${Date.now()}-${file.filename}`;
-    const filePath = join(__dirname, '..', '..', 'uploads', filename);
+    const imagensSalvas: string[] = [];
 
-    fs.writeFileSync(filePath, fileBuffer);
+    for (const file of files) {
+      const filename = `${Date.now()}-${file.originalname}`;
+      const filePath = join(__dirname, '..', '..', 'uploads', filename);
+      fs.writeFileSync(filePath, file.buffer);
+      imagensSalvas.push(`/uploads/${filename}`);
+    }
 
     const produto = await this.service.criarProduto({
-      nome,
+      ean,
+      codigo,
       descricao,
       preco: parseFloat(preco),
-      imagemUrl: `/uploads/${filename}`,
+      imagens: imagensSalvas,
     });
 
     return produto;
