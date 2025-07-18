@@ -16,7 +16,24 @@ export class ProdutosService {
   }
 
   async listarTodos(): Promise<Produto[]> {
-    return await prisma.produto.findMany();
+    return await prisma.produto.findMany({
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    });
+  }
+
+  async listarAtualizadosDepois(depoisDe: Date): Promise<Produto[]> {
+    return await prisma.produto.findMany({
+      where: {
+        updatedAt: {
+          gt: depoisDe,
+        },
+      },
+      orderBy: {
+        updatedAt: 'asc',
+      },
+    });
   }
 
   async buscarPorId(id: number): Promise<Produto | null> {

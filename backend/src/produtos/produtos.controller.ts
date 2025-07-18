@@ -8,12 +8,15 @@ import {
   Body,
   UploadedFiles,
   UseInterceptors,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { ProdutosService } from './produtos.service';
 import {
   ApiConsumes,
   ApiBody,
   ApiTags,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { join } from 'path';
@@ -69,7 +72,16 @@ export class ProdutosController {
   }
 
   @Get()
-  listar() {
+  @ApiQuery({ name: 'depoisDe', required: false, type: String })
+  async listar(@Query('depoisDe') depoisDe?: string) {
+    if (depoisDe) {
+      const data = new Date(depoisDe);
+      if (isNaN(data.getTime())) {
+        throw new BadRequestException('Formato inválido para a data em depoisDe');
+      }
+      return this.service.listarAtualizadosDepois(data);
+    }
+
     return this.service.listarTodos();
   }
 
