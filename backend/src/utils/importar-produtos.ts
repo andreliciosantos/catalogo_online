@@ -15,6 +15,7 @@ if (!fs.existsSync(pastaUploads)) {
   fs.mkdirSync(pastaUploads, { recursive: true });
 }
 
+// Lê e converte o CSV
 function carregarCSV(): any[] {
   if (!fs.existsSync(arquivoCSV)) {
     throw new Error(`❌ Arquivo CSV não encontrado em: ${arquivoCSV}`);
@@ -25,16 +26,16 @@ function carregarCSV(): any[] {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const dados = xlsx.utils.sheet_to_json(sheet);
 
-  // Filtrar apenas os campos necessários
   return dados.map((item: any) => ({
-    ean: item.ean || item.EAN || item['EAN '],
-    codigo: item.codigo || item.CODIGO || item['Código'] || item['codigo'],
-    descricao: item.descricao || item.DESCRICAO || item['Descrição'] || item['descricao'],
+    ean: String(item.ean || item.EAN || item['EAN '] || '').trim(),
+    codigo: String(item.codigo || item.CODIGO || item['Código'] || item['codigo'] || '').trim(),
+    descricao: String(item.descricao || item.DESCRICAO || item['Descrição'] || item['descricao'] || '').trim(),
   }));
 }
 
 async function importar() {
   const dados = carregarCSV();
+  const extensoesPossiveis = ['.png', '.jpg', '.jpeg', '.webp'];
 
   for (const item of dados) {
     const { ean, codigo, descricao } = item;
@@ -44,32 +45,56 @@ async function importar() {
       continue;
     }
 
-    const nomeImagem = `${ean}.png`;
-    const caminhoImagemOrigem = path.join(pastaImagensOrigem, nomeImagem);
-    let imagemUrl = '';
+    // Verifica se o produto já existe
+    const existente = await prisma.produto.findFirst({
+      where: { ean },
+    });
 
-    if (fs.existsSync(caminhoImagemOrigem)) {
+    let imagemUrl = '';
+    let imagemEncontrada = false;
+
+    for (const ext of extensoesPossiveis) {
+      const nomeImagem = `${ean}${ext}`;
+      const origem = path.join(pastaImagensOrigem, nomeImagem);
       const destino = path.join(pastaUploads, nomeImagem);
-      fs.copyFileSync(caminhoImagemOrigem, destino);
-      imagemUrl = `/uploads/${nomeImagem}`;
-      console.log(`🖼️ Imagem copiada: ${nomeImagem}`);
-    } else {
-      console.log(`🔍 Imagem ausente: ${nomeImagem}`);
+
+      if (fs.existsSync(origem)) {
+        fs.copyFileSync(origem, destino);
+        imagemUrl = `/uploads/${nomeImagem}`;
+        imagemEncontrada = true;
+        console.log(`🖼️ Imagem encontrada e copiada: ${nomeImagem}`);
+        break;
+      }
     }
 
+    if (existente) {
+      // Atualiza a imagem se ainda não existir
+      if (imagemEncontrada && (!existente.imagens || existente.imagens.length === 0)) {
+        await prisma.produto.updateMany({
+          where: { ean },
+          data: { imagens: [imagemUrl] },
+        });
+        console.log(`♻️ Produto existente atualizado com imagem: ${descricao}`);
+      } else {
+        console.log(`⏩ Produto já existe e não precisa de atualização: ${descricao}`);
+      }
+      continue;
+    }
+
+    // Criação de novo produto
     try {
       await prisma.produto.create({
         data: {
-          ean: String(ean),
-          codigo: String(codigo),
-          descricao: String(descricao),
-          preco: 0, // Valor padrão fixo
-          imagens: imagemUrl ? [imagemUrl] : [],
+          ean,
+          codigo,
+          descricao,
+          preco: 0,
+          imagens: imagemEncontrada ? [imagemUrl] : [],
         },
       });
       console.log(`✅ Produto importado: ${descricao}`);
-    } catch (err) {
-      console.error(`❌ Erro ao importar "${descricao}":`, err.message);
+    } catch (err: any) {
+      console.error(`❌ Erro ao importar "${descricao}" (EAN ${ean}):`, err.message);
     }
   }
 
